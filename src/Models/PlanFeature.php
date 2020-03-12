@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Rinvex\Subscriptions\Models;
 
 use Carbon\Carbon;
-use Spatie\Sluggable\SlugOptions;
+use Illuminate\Validation\Rule;
+use Rinvex\Subscriptions\Classes\SlugOptions;
 use Rinvex\Support\Traits\HasSlug;
 use Spatie\EloquentSortable\Sortable;
 use Illuminate\Database\Eloquent\Model;
@@ -159,9 +160,11 @@ class PlanFeature extends Model implements Sortable
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
-                          ->doNotGenerateSlugsOnUpdate()
-                          ->generateSlugsFrom('name')
-                          ->saveSlugsTo('slug');
+            ->doNotGenerateSlugsOnUpdate()
+            //->allowDuplicateSlugs()
+            ->generateSlugsFrom('name')
+            ->usingPostfix((string) $this->plan_id)
+            ->saveSlugsTo('slug');
     }
 
     /**

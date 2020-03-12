@@ -6,7 +6,8 @@ namespace Rinvex\Subscriptions\Models;
 
 use DB;
 use LogicException;
-use Spatie\Sluggable\SlugOptions;
+use Rinvex\Subscriptions\Traits\FeatureSlugName;
+use Rinvex\Subscriptions\Classes\SlugOptions;
 use Rinvex\Support\Traits\HasSlug;
 use Illuminate\Database\Eloquent\Model;
 use Rinvex\Cacheable\CacheableEloquent;
@@ -65,6 +66,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class PlanSubscription extends Model
 {
+    use FeatureSlugName;
     use HasSlug;
     use BelongsToPlan;
     use HasTranslations;
@@ -498,6 +500,7 @@ class PlanSubscription extends Model
      */
     public function canUseFeature(string $featureSlug): bool
     {
+        $featureSlug = $this->featureSlugByName($featureSlug);
         $featureValue = $this->getFeatureValue($featureSlug);
         $usage = $this->usage()->byFeatureSlug($featureSlug)->first();
 
@@ -524,9 +527,9 @@ class PlanSubscription extends Model
      */
     public function getFeatureUsage(string $featureSlug): int
     {
-        $usage = $this->usage()->byFeatureSlug($featureSlug)->first();
+        $usage = $this->usage()->byFeatureSlug($this->featureSlugByName($featureSlug))->first();
 
-        return ! $usage->expired() ? $usage->used : 0;
+        return ($usage && !$usage->expired()) ? $usage->used : 0;
     }
 
     /**
@@ -550,7 +553,7 @@ class PlanSubscription extends Model
      */
     public function getFeatureValue(string $featureSlug)
     {
-        $feature = $this->plan->features()->where('slug', $featureSlug)->first();
+        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureSlug))->first();
 
         return $feature->value ?? null;
     }

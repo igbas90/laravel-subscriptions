@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Rinvex\Subscriptions\Models;
 
-use Spatie\Sluggable\SlugOptions;
+//use Spatie\Sluggable\SlugOptions;
+use Rinvex\Subscriptions\Classes\SlugOptions;
 use Rinvex\Support\Traits\HasSlug;
 use Spatie\EloquentSortable\Sortable;
 use Illuminate\Database\Eloquent\Model;
@@ -199,12 +200,13 @@ class Plan extends Model implements Sortable
     /**
      * Get the options for generating the slug.
      *
-     * @return \Spatie\Sluggable\SlugOptions
+     * @return \Rinvex\Subscriptions\Classes\SlugOptions;
      */
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
                           ->doNotGenerateSlugsOnUpdate()
+                          ->allowDuplicateSlugs()
                           ->generateSlugsFrom('name')
                           ->saveSlugsTo('slug');
     }
