@@ -8,7 +8,7 @@ use DB;
 use LogicException;
 use Rinvex\Subscriptions\Traits\FeatureSlugName;
 use Rinvex\Subscriptions\Classes\SlugOptions;
-use Rinvex\Support\Traits\HasSlug;
+use Rinvex\Subscriptions\Traits\HasSlug;
 use Illuminate\Database\Eloquent\Model;
 use Rinvex\Cacheable\CacheableEloquent;
 use Illuminate\Database\Eloquent\Builder;

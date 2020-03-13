@@ -7,7 +7,7 @@ namespace Rinvex\Subscriptions\Models;
 use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 use Rinvex\Subscriptions\Classes\SlugOptions;
-use Rinvex\Support\Traits\HasSlug;
+use Rinvex\Subscriptions\Traits\HasSlug;
 use Spatie\EloquentSortable\Sortable;
 use Illuminate\Database\Eloquent\Model;
 use Rinvex\Cacheable\CacheableEloquent;
