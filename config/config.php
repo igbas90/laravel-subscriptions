@@ -11,7 +11,7 @@ return [
         'plan_features' => 'plan_features',
         'plan_subscriptions' => 'plan_subscriptions',
         'plan_subscription_usage' => 'plan_subscription_usage',
-
+        'plan_subscription_usage_histories' => 'plan_subscription_usage_histories',
     ],
 
     // Subscriptions Models
@@ -21,7 +21,7 @@ return [
         'plan_feature' => \Rinvex\Subscriptions\Models\PlanFeature::class,
         'plan_subscription' => \Rinvex\Subscriptions\Models\PlanSubscription::class,
         'plan_subscription_usage' => \Rinvex\Subscriptions\Models\PlanSubscriptionUsage::class,
-
+        'plan_subscription_usage_history' => \Rinvex\Subscriptions\Models\PlanSubscriptionUsageHistory::class,
     ],
 
 ];

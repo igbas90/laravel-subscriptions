@@ -302,6 +302,7 @@ class PlanSubscription extends Model
         // Attach new plan to subscription
         $this->plan_id = $plan->getKey();
         $this->save();
+        $this->renew();
 
         return $this;
     }
@@ -434,13 +435,17 @@ class PlanSubscription extends Model
      * Record feature usage.
      *
      * @param string $featureSlug
-     * @param int    $uses
+     * @param int $uses
      *
+     * @param string|null $extra string json
+     * @param bool $incremental
      * @return \Rinvex\Subscriptions\Models\PlanSubscriptionUsage
      */
-    public function recordFeatureUsage(string $featureSlug, int $uses = 1, bool $incremental = true): PlanSubscriptionUsage
+    public function recordFeatureUsage(string $featureSlug, int $uses = 1, string $extra = null, bool $incremental = true): PlanSubscriptionUsage
     {
-        $feature = $this->plan->features()->where('slug', $featureSlug)->first();
+        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureSlug))->first();
+
+        $currentValue = $this->getFeatureRemainings($featureSlug);
 
         $usage = $this->usage()->firstOrNew([
             'subscription_id' => $this->getKey(),
@@ -463,7 +468,15 @@ class PlanSubscription extends Model
 
         $usage->used = ($incremental ? $usage->used + $uses : $uses);
 
-        $usage->save();
+        if ($usage->save()) {
+            PlanSubscriptionUsageHistory::create([
+                'subscription_id' => $this->getKey(),
+                'feature_id' => $feature->getKey(),
+                'before' => $currentValue,
+                'used' => $uses,
+                'extra' => $extra
+            ]);
+        }
 
         return $usage;
     }
