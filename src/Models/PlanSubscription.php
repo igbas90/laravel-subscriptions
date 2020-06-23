@@ -302,6 +302,7 @@ class PlanSubscription extends Model
         // Attach new plan to subscription
         $this->plan_id = $plan->getKey();
         $this->save();
+        $this->refresh();
         $this->renew();
 
         return $this;
