@@ -13,7 +13,7 @@ class RollbackCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'rinvex:rollback:subscriptions {--force : Force the operation to run when in production.}';
+    protected $signature = 'rinvex:rollback:subscriptions {--force : Force the operation to run when in production.} {--step=0}';
 
     /**
      * The console command description.
@@ -32,7 +32,8 @@ class RollbackCommand extends Command
         $this->alert($this->description);
 
         if (file_exists($path = 'database/migrations/rinvex/laravel-subscriptions')) {
-            $this->call('migrate:reset', [
+            $this->call('migrate:rollback', [
+                '--step' => ((int) $this->option('step')) ?? true,
                 '--path' => $path,
                 '--force' => $this->option('force'),
             ]);

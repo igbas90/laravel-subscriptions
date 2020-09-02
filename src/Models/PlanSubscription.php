@@ -288,7 +288,7 @@ class PlanSubscription extends Model
      *
      * @return $this
      */
-    public function changePlan(Plan $plan)
+    public function changePlan(Plan $plan, $featureNames = [])
     {
         // If plans does not have the same billing frequency
         // (e.g., invoice_interval and invoice_period) we will update
@@ -301,9 +301,28 @@ class PlanSubscription extends Model
 
         // Attach new plan to subscription
         $this->plan_id = $plan->getKey();
-        $this->save();
+
+        //write history used features
+        if ($this->save() && !empty($featureNames)) {
+            $subscription = $this;
+
+            $callback = function() use ($featureNames, $subscription) {
+                foreach ($featureNames as $featureName => $reason) {
+                    $feature = $subscription->plan->getFeatureBySlug($subscription->featureSlugByName($featureName));
+                    if ($feature) {
+                        $subscription->writeFeatureUsageHistory(
+                            $feature,
+                            0,
+                            - $feature->value,
+                            $reason
+                        );
+                    }
+                }
+            };
+        }
+
         $this->refresh();
-        $this->renew();
+        $this->renew($callback ?? null);
 
         return $this;
     }
@@ -311,11 +330,10 @@ class PlanSubscription extends Model
     /**
      * Renew subscription period.
      *
-     * @throws \LogicException
-     *
+     * @param \Closure|null $callback
      * @return $this
      */
-    public function renew()
+    public function renew(\Closure $callback = null)
     {
         if ($this->ended() && $this->canceled()) {
             throw new LogicException('Unable to renew canceled ended subscription.');
@@ -323,14 +341,18 @@ class PlanSubscription extends Model
 
         $subscription = $this;
 
-        DB::transaction(function () use ($subscription) {
+        DB::transaction(function () use ($subscription, $callback) {
             // Clear usage data
-            $subscription->usage()->delete();
+            //$subscription->usage()->delete();
 
             // Renew period
             $subscription->setNewPeriod();
             $subscription->canceled_at = null;
             $subscription->save();
+
+            if ($callback) {
+                $callback();
+            }
         });
 
         return $this;
@@ -435,19 +457,21 @@ class PlanSubscription extends Model
     /**
      * Record feature usage.
      *
-     * @param string $featureSlug
+     * @param string $featureName
      * @param int $uses
      *
      * @param string|null $extra string json
      * @param bool $incremental
      * @return \Rinvex\Subscriptions\Models\PlanSubscriptionUsage
      */
-    public function recordFeatureUsage(string $featureSlug, int $uses = 1, string $extra = null, bool $incremental = true): PlanSubscriptionUsage
+    public function recordFeatureUsage(string $featureName, int $uses = 1, string $extra = null, bool $incremental = true): PlanSubscriptionUsage
     {
-        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureSlug))->first();
+        /** @var $feature PlanFeature */
+        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureName))->first();
 
-        $currentValue = $this->getFeatureRemainings($featureSlug);
+        $currentValue = $this->getFeatureRemainings($featureName);
 
+        /** @var  $usage PlanSubscriptionUsage*/
         $usage = $this->usage()->firstOrNew([
             'subscription_id' => $this->getKey(),
             'feature_id' => $feature->getKey(),
@@ -470,13 +494,7 @@ class PlanSubscription extends Model
         $usage->used = ($incremental ? $usage->used + $uses : $uses);
 
         if ($usage->save()) {
-            PlanSubscriptionUsageHistory::create([
-                'subscription_id' => $this->getKey(),
-                'feature_id' => $feature->getKey(),
-                'before' => $currentValue,
-                'used' => $uses,
-                'extra' => $extra
-            ]);
+            $this->writeFeatureUsageHistory($feature, $currentValue, $uses, $extra);
         }
 
         return $usage;
@@ -490,19 +508,39 @@ class PlanSubscription extends Model
      *
      * @return \Rinvex\Subscriptions\Models\PlanSubscriptionUsage|null
      */
-    public function reduceFeatureUsage(string $featureSlug, int $uses = 1): ?PlanSubscriptionUsage
+    public function reduceFeatureUsage(string $featureName, int $uses = 1, string $extra = null): ?PlanSubscriptionUsage
     {
-        $usage = $this->usage()->byFeatureSlug($featureSlug)->first();
+        /** @var $feature PlanFeature */
+        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureName))->first();
 
-        if (is_null($usage)) {
-            return null;
+        $currentValue = $this->getFeatureRemainings($featureName);
+
+        /** @var  $usage PlanSubscriptionUsage*/
+        $usage = $this->usage()->firstOrNew([
+            'subscription_id' => $this->getKey(),
+            'feature_id' => $feature->getKey(),
+        ]);
+
+        $usage->used = $usage->used - $uses;
+
+        if ($usage->save()) {
+            $this->writeFeatureUsageHistory($feature, $currentValue, -$uses, $extra);
         }
 
-        $usage->used = max($usage->used - $uses, 0);
-
-        $usage->save();
-
         return $usage;
+    }
+
+    protected function writeFeatureUsageHistory(PlanFeature $feature, $currentValue, $uses, $extra)
+    {
+        $data = [
+            'subscription_id' => $this->getKey(),
+            'feature_id' => $feature->getKey(),
+            'before' => $currentValue,
+            'used' => $uses,
+            'extra' => $extra
+        ];
+
+        return PlanSubscriptionUsageHistory::create($data);
     }
 
     /**
@@ -539,9 +577,9 @@ class PlanSubscription extends Model
      *
      * @return int
      */
-    public function getFeatureUsage(string $featureSlug): int
+    public function getFeatureUsage(string $featureName): int
     {
-        $usage = $this->usage()->byFeatureSlug($this->featureSlugByName($featureSlug))->first();
+        $usage = $this->usage()->byFeatureSlug($this->featureSlugByName($featureName))->first();
 
         return ($usage && !$usage->expired()) ? $usage->used : 0;
     }
@@ -553,9 +591,9 @@ class PlanSubscription extends Model
      *
      * @return int
      */
-    public function getFeatureRemainings(string $featureSlug): int
+    public function getFeatureRemainings(string $featureName): int
     {
-        return $this->getFeatureValue($featureSlug) - $this->getFeatureUsage($featureSlug);
+        return $this->getFeatureValue($featureName) - $this->getFeatureUsage($featureName);
     }
 
     /**
@@ -565,9 +603,9 @@ class PlanSubscription extends Model
      *
      * @return mixed
      */
-    public function getFeatureValue(string $featureSlug)
+    public function getFeatureValue(string $featureName)
     {
-        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureSlug))->first();
+        $feature = $this->plan->features()->where('slug', $this->featureSlugByName($featureName))->first();
 
         return $feature->value ?? null;
     }
