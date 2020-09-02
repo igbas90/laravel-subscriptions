@@ -38,7 +38,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PlanSubscriptionUsage extends Model
 {
     use ValidatingTrait;
-    use CacheableEloquent;
+    //use CacheableEloquent;
 
     /**
      * {@inheritdoc}

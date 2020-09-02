@@ -38,7 +38,7 @@ class PlanSubscriptionUsageHistory extends Model
 {
     use SoftDeletes;
     use ValidatingTrait;
-    use CacheableEloquent;
+    //use CacheableEloquent;
 
     /**
      * {@inheritdoc}

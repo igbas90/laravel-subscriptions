@@ -71,7 +71,7 @@ class PlanSubscription extends Model
     use BelongsToPlan;
     use HasTranslations;
     use ValidatingTrait;
-    use CacheableEloquent;
+    //use CacheableEloquent;
 
     /**
      * {@inheritdoc}
@@ -296,8 +296,9 @@ class PlanSubscription extends Model
         // a new billing cycle, the usage data will be cleared.
         if ($this->plan->invoice_interval !== $plan->invoice_interval || $this->plan->invoice_period !== $plan->invoice_period) {
             $this->setNewPeriod($plan->invoice_interval, $plan->invoice_period);
-            $this->usage()->delete();
         }
+
+        $this->usage()->delete();
 
         // Attach new plan to subscription
         $this->plan_id = $plan->getKey();
